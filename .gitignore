@@ -1,0 +1,11 @@
+*.exe
+*.out
+*.o
+*.obj
+*.a
+*.lib
+*.dll
+*.so
+*.pdb
+.vs/
+*.su

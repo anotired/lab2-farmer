@@ -21,10 +21,27 @@ int main()
         printf("[5] Выбросить предмет\n");
         printf("[6] Устранить дубликаты\n");
         
+        printf("Введите действие: ");
+        result = scanf("%d", &choice);
+        ch = getchar();
+        while (ch != '\n' && ch != EOF) {
+            ch = getchar();
+        }
+        if (result == EOF) {
+            return 0;
+        }
+        if (result != 1) {
+            printf("Ошибка. Нужно ввести число\n");
+            continue;
+        }
         switch (choice) {
             case 0:
-            printf("Вы вышли из игры\n");
-            continue;
+                printf("Вы вышли из игры\n");
+                return 0;
+
+            default:
+                printf("Такого пункта нет в меню!\n");
+                break;
         }
     }
 }

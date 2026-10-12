@@ -1,6 +1,6 @@
 #include <stdio.h>
 #define inventory_size 10
-#define max_work_hours 10
+#define max_work_hours 24
 #define hours_in_day 24
 #define max_item_id 9
 
@@ -19,8 +19,7 @@ int main()
     int i;
     int slot;
     int item_id;
-
-
+    int j;
 
     while (1) {
         printf("[0] Выход\n");
@@ -113,12 +112,12 @@ int main()
                     return 0;
                 }
                 if (result != 1 || item_id < 0 || item_id > max_item_id) {
-                    printf("Ошибка: ID должен быть числом от 0 до %d!\n", max_item_id);
+                    printf("Ошибка. ID должен быть числом от 0 до %d!\n", max_item_id);
                     break;
                 }
  
                 inventory[slot] = item_id;
-                printf("Готово! В слоте %d теперь предмет %d.\n", slot, item_id);
+                printf("Готово. В слоте %d теперь предмет %d.\n", slot, item_id);
                 break;
  
             case 5:
@@ -135,6 +134,30 @@ int main()
                 }
                 inventory[slot] = 0;
                 printf("Слот %d очищен.\n", slot);
+                break;
+            
+            case 6:
+                printf("До: ");
+                for (i = 0; i < inventory_size; i++) {
+                    printf("%d ", inventory[i]);
+                }
+                printf("\n");
+ 
+                for (i = 0; i < inventory_size; i++) {
+                    if (inventory[i] != 0) {
+                        for (j = i + 1; j < inventory_size; j++) {
+                            if (inventory[j] == inventory[i]) {
+                                inventory[j] = 0;
+                            }
+                        }
+                    }
+                }
+ 
+                printf("После: ");
+                for (i = 0; i < inventory_size; i++) {
+                    printf("%d ", inventory[i]);
+                }
+                printf("\n");
                 break;
         }
     }

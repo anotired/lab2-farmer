@@ -13,7 +13,14 @@
 #define items_file "items.txt"
 #define diary_file "diary.txt"
 #define no_item (-1)
-#define menu_last 8
+#define input_file "input.txt"
+#define output_file "output.txt"
+#define map_line_size 512
+#define no_width (-1)
+#define unpack_error (-1)
+#define map_err_no_input (-1)
+#define map_err_no_output (-2)
+#define menu_last 9
 
 void remove_newline(char *text)
 {
@@ -23,6 +30,11 @@ void remove_newline(char *text)
         text[len - 1] = '\0';
         len--;
     }
+}
+
+int is_digit(char c) /* ЗАДАНИЕ ПО ВАРИАНТУ(проверка на цифру) */
+{
+    return c >= '0' && c <= '9';
 }
 
 int read_line(char *buffer, int size)
@@ -201,6 +213,119 @@ void write_diary_entry(FILE *out, const char *farmer_name, int day, int hour,
     fprintf(out, "\n");
 }
 
+int unpack_line(const char *packed, char *result, int result_size)
+{
+    int i = 0;       
+    int len = 0;     
+    int count;       
+    int k;
+    char symbol;
+
+    while (packed[i] != '\0') {
+        if (!is_digit(packed[i])) {
+            return unpack_error;
+        }
+        count = 0;
+        while (is_digit(packed[i])) {
+            count = count * 10 + (packed[i] - '0');
+            if (count >= result_size) {
+                return unpack_error;
+            }
+            i++;
+        }
+
+        if (packed[i] == '\0') {
+            return unpack_error;
+        }
+        symbol = packed[i];
+        i++;
+
+        if (count == 0 || len + count >= result_size) {
+            return unpack_error;
+        }
+        for (k = 0; k < count; k++) {
+            result[len] = symbol;
+            len++;
+        }
+    }
+
+    result[len] = '\0';
+    return len;
+}
+
+int unpack_map_file(const char *in_name, const char *out_name)
+{
+    FILE *in;
+    FILE *out;
+    char packed[map_line_size];
+    char unpacked[map_line_size];
+    int line_number = 0;
+    int width = no_width;    /* длина первой правильной строки */
+    int rows = 0;
+    int errors = 0;
+    int len;
+
+    in = fopen(in_name, "r");
+    if (in == NULL) {
+        return map_err_no_input;
+    }
+    out = fopen(out_name, "w");
+    if (out == NULL) {
+        fclose(in);
+        return map_err_no_output;
+    }
+
+    while (fgets(packed, map_line_size, in) != NULL) {
+        line_number++;
+        remove_newline(packed);
+        if (strlen(packed) == 0) {
+            continue;    /* пустые строки пропускаем */
+        }
+
+        len = unpack_line(packed, unpacked, map_line_size);
+        if (len == unpack_error) {
+            fprintf(out, "Ошибка в строке %d: неверная запись \"%s\"\n", line_number, packed);
+            errors++;
+        } else if (width != no_width && len != width) {
+            fprintf(out, "Ошибка в строке %d: длина %d, а должна быть %d\n",
+                    line_number, len, width);
+            errors++;
+        } else {
+            if (width == no_width) {
+                width = len;
+            }
+            fprintf(out, "%s\n", unpacked);
+            rows++;
+        }
+    }
+
+    if (errors > 0) {
+        fprintf(out, "Найдено ошибок: %d\n", errors);
+    } else if (rows == 0) {
+        fprintf(out, "В файле нет строк карты.\n");
+    } else {
+        fprintf(out, "Карта корректна: %d строк по %d символов.\n", rows, width);
+    }
+
+    fclose(in);
+    fclose(out);
+    return errors;
+}
+void print_file(const char *filename)
+{
+    FILE *file;
+    char line[line_size];
+
+    file = fopen(filename, "r");
+    if (file == NULL) {
+        printf("Не удалось открыть файл %s\n", filename);
+        return;
+    }
+    while (fgets(line, line_size, file) != NULL) {
+        printf("%s", line);
+    }
+    fclose(file);
+}
 void print_menu(const char *farmer_name)
 {
     printf("\n===== Весёлый фермер. Привет, %s! =====\n", farmer_name);
@@ -213,6 +338,7 @@ void print_menu(const char *farmer_name)
     printf("[6] Устранить дубликаты\n");
     printf("[7] Найти предмет по названию\n");
     printf("[8] Записать состояние в дневник\n");
+    printf("[9] Расшифровать карту (input.txt)\n");
 }
 
 void menu_search_item(const int inventory[], char item_names[max_items][max_name_len])
@@ -255,11 +381,26 @@ void menu_diary(const char *farmer_name, int day, int hour,
         return;
     }
 
-    write_diary_entry(stdout, farmer_name, day, hour, inventory, item_names);  /* на экран */
-    write_diary_entry(file, farmer_name, day, hour, inventory, item_names);    /* в файл */
+    write_diary_entry(stdout, farmer_name, day, hour, inventory, item_names);
+    write_diary_entry(file, farmer_name, day, hour, inventory, item_names);
 
     fclose(file);
     printf("Запись добавлена в %s\n", diary_file);
+}
+
+void menu_unpack_map(void)
+{
+    int result;
+
+    result = unpack_map_file(input_file, output_file);
+    if (result == map_err_no_input) {
+        printf("Ошибка: не найден файл %s!\n", input_file);
+    } else if (result == map_err_no_output) {
+        printf("Ошибка: не удалось создать файл %s!\n", output_file);
+    } else {
+        print_file(output_file);
+        printf("Результат записан в %s\n", output_file);
+    }
 }
 
 
@@ -344,6 +485,10 @@ int main(void)
 
             case 8:
                 menu_diary(farmer_name, current_day, current_hour, inventory, item_names);
+                break;
+
+            case 9:
+                menu_unpack_map();
                 break;
 
             default:

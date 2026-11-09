@@ -26,6 +26,7 @@ typedef struct {
 void forest_free(Forest *forest);
 int forest_generate(Forest *forest);
 void forest_draw(const Forest *forest);
+int forest_move(Forest *forest, int dx, int dy);
 void adventure(void);
 
 #endif

@@ -69,3 +69,19 @@ void forest_draw(const Forest *forest)
     }
     puts("@ — герой, T — дерево, R — камень, ^ — лагерь, P — портал.");
 }
+
+int forest_move(Forest *forest, int dx, int dy)
+{
+    int x = forest->x + dx;
+    int y = forest->y + dy;
+    if (x < 0 || x >= forest->width || y < 0 || y >= forest->height) {
+        return 0;
+    }
+    if (forest->cells[y][x] == forest_tree || forest->cells[y][x] == forest_rock) {
+        puts("Путь закрыт препятствием.");
+        return 0;
+    }
+    forest->x = x;
+    forest->y = y;
+    return 1;
+}

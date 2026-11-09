@@ -1,6 +1,9 @@
 #include "adventure.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#include <limits.h>
 
 void forest_free(Forest *forest)
 {
@@ -136,14 +139,15 @@ int forest_move(Forest *forest, int dx, int dy)
     forest->x = x;
     forest->y = y;
     if (crossed) {
-        /* После появления портала счётчик насыщается, исключая переполнение. */
-        if (forest->crossings < forest_portal_crossings) {
+        if (forest->crossings < INT_MAX) {
             forest->crossings++;
         }
         puts("Вы пересекли край и оказались на другой стороне того же леса.");
     }
     if (forest->cells[y][x] == forest_portal) {
-        forest->distance++;
+        if (forest->distance < INT_MAX) {
+            forest->distance++;
+        }
         if (!forest_generate(forest)) {
             return -1;
         }
@@ -156,4 +160,66 @@ int forest_move(Forest *forest, int dx, int dy)
         }
     }
     return 1;
+}
+
+static int adventure_command(void)
+{
+    char line[adventure_line_size];
+    char command;
+    char extra;
+    int ch;
+    for (;;) {
+        printf("W/A/S/D — движение, Q — домой из лагеря: ");
+        if (fgets(line, sizeof(line), stdin) == NULL) {
+            return EOF;
+        }
+        if (strchr(line, '\n') == NULL && !feof(stdin)) {
+            while ((ch = getchar()) != '\n' && ch != EOF) {
+            }
+            puts("Ошибка: введите одну команду W, A, S, D или Q.");
+            continue;
+        }
+        if (sscanf(line, " %c %c", &command, &extra) == 1) {
+            command = (char)toupper((unsigned char)command);
+            if (strchr("WASDQ", command) != NULL && command != '\0') {
+                return command;
+            }
+        }
+        puts("Ошибка: введите одну команду W, A, S, D или Q.");
+    }
+}
+
+void adventure(void)
+{
+    Forest forest = {0};
+    int command;
+    int dx;
+    int dy;
+    if (!forest_generate(&forest)) {
+        puts("Не удалось выделить память для леса.");
+        return;
+    }
+    for (;;) {
+        forest_draw(&forest);
+        command = adventure_command();
+        if (command == EOF) {
+            puts("\nВвод закрыт. Приключение завершено.");
+            break;
+        }
+        if (command == 'Q') {
+            if (forest.cells[forest.y][forest.x] == forest_camp) {
+                puts("Вы вернулись домой из лагеря.");
+                break;
+            }
+            puts("Вернуться домой можно только из лагеря ^.");
+            continue;
+        }
+        dx = (command == 'D') - (command == 'A');
+        dy = (command == 'S') - (command == 'W');
+        if (forest_move(&forest, dx, dy) < 0) {
+            puts("Не удалось выделить память. Приключение завершено.");
+            break;
+        }
+    }
+    forest_free(&forest);
 }

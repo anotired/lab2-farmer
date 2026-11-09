@@ -1,6 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <errno.h>
+#include <ctype.h>
+#include "src/adventure.h"
 
 #define inventory_size 10
 #define max_work_hours 24
@@ -20,7 +24,7 @@
 #define unpack_error (-1)
 #define map_err_no_input (-1)
 #define map_err_no_output (-2)
-#define menu_last 9
+#define menu_last 10
 
 void remove_newline(char *text)
 {
@@ -39,17 +43,30 @@ int is_digit(char c) /* ЗАДАНИЕ ПО ВАРИАНТУ(проверка н
 
 int read_line(char *buffer, int size)
 {
-    if (fgets(buffer, size, stdin) == NULL) {
-        return 0;
+    int ch;
+    for (;;) {
+        if (fgets(buffer, size, stdin) == NULL) {
+            return 0;
+        }
+        if (strchr(buffer, '\n') == NULL && !feof(stdin)) {
+            ch = getchar();
+            if (ch != '\n' && ch != EOF) {
+                while ((ch = getchar()) != '\n' && ch != EOF) {
+                }
+                printf("Ошибка: слишком длинная строка. Повторите ввод: ");
+                continue;
+            }
+        }
+        remove_newline(buffer);
+        return 1;
     }
-    remove_newline(buffer);
-    return 1;
 }
 
 int read_int(const char *prompt, int min, int max)
 {
     char line[line_size];
-    int value;
+    long value;
+    char *end;
 
     while (1) {
         printf("%s (%d-%d): ", prompt, min, max);
@@ -57,12 +74,17 @@ int read_int(const char *prompt, int min, int max)
             printf("\nВвод закрыт. Выход из программы.\n");
             exit(0);
         }
-        if (sscanf(line, "%d", &value) != 1) {
+        errno = 0;
+        value = strtol(line, &end, 10);
+        while (isspace((unsigned char)*end)) {
+            end++;
+        }
+        if (end == line || *end != '\0' || errno == ERANGE) {
             printf("Ошибка: нужно ввести число!\n");
         } else if (value < min || value > max) {
             printf("Ошибка: число должно быть от %d до %d!\n", min, max);
         } else {
-            return value;
+            return (int)value;
         }
     }
 }
@@ -339,6 +361,7 @@ void print_menu(const char *farmer_name)
     printf("[7] Найти предмет по названию\n");
     printf("[8] Записать состояние в дневник\n");
     printf("[9] Расшифровать карту (input.txt)\n");
+    printf("[10] Отправиться в приключение\n");
 }
 
 void menu_search_item(const int inventory[], char item_names[max_items][max_name_len])
@@ -419,6 +442,7 @@ int main(void)
     int slot;
     int item_id;
 
+    srand((unsigned int)time(NULL));
     set_default_names(item_names);
     loaded = load_item_names(item_names, items_file);
     if (loaded == 0) {
@@ -489,6 +513,10 @@ int main(void)
 
             case 9:
                 menu_unpack_map();
+                break;
+
+            case 10:
+                adventure();
                 break;
 
             default:

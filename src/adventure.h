@@ -1,6 +1,7 @@
 #ifndef ADVENTURE_H
 #define ADVENTURE_H
 
+#define adventure_line_size 256
 #define forest_min_size 5
 #define forest_max_size 30
 #define forest_obstacle_percent 20

@@ -67,6 +67,7 @@ int read_int(const char *prompt, int min, int max)
     char line[line_size];
     long value;
     char *end;
+    char *start;
 
     while (1) {
         printf("%s (%d-%d): ", prompt, min, max);
@@ -75,11 +76,15 @@ int read_int(const char *prompt, int min, int max)
             exit(0);
         }
         errno = 0;
-        value = strtol(line, &end, 10);
+        start = line;
+        while (isspace((unsigned char)*start)) {
+            start++;
+        }
+        value = strtol(start, &end, 10);
         while (isspace((unsigned char)*end)) {
             end++;
         }
-        if (end == line || *end != '\0' || errno == ERANGE) {
+        if (end == start || *end != '\0' || errno == ERANGE) {
             printf("Ошибка: нужно ввести число!\n");
         } else if (value < min || value > max) {
             printf("Ошибка: число должно быть от %d до %d!\n", min, max);

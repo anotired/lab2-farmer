@@ -70,18 +70,90 @@ void forest_draw(const Forest *forest)
     puts("@ — герой, T — дерево, R — камень, ^ — лагерь, P — портал.");
 }
 
+static int forest_place_portal(Forest *forest)
+{
+    int total = forest->width * forest->height;
+    int *queue = malloc((size_t)total * sizeof(*queue));
+    unsigned char *seen = calloc((size_t)total, sizeof(*seen));
+    const int dx[] = {0, -1, 0, 1};
+    const int dy[] = {-1, 0, 1, 0};
+    int head = 0;
+    int tail = 0;
+    int selected = -1;
+    int count = 0;
+    int i;
+    if (queue == NULL || seen == NULL) {
+        free(queue);
+        free(seen);
+        return 0;
+    }
+    queue[tail++] = forest->y * forest->width + forest->x;
+    seen[queue[0]] = 1;
+    while (head < tail) {
+        int cell = queue[head++];
+        int x = cell % forest->width;
+        int y = cell / forest->width;
+        if (forest->cells[y][x] == forest_empty &&
+            (x != forest->x || y != forest->y)) {
+            count++;
+            if (rand() % count == 0) {
+                selected = cell;
+            }
+        }
+        for (i = 0; i < (int)(sizeof(dx) / sizeof(dx[0])); i++) {
+            int nx = (x + dx[i] + forest->width) % forest->width;
+            int ny = (y + dy[i] + forest->height) % forest->height;
+            int next = ny * forest->width + nx;
+            char tile = forest->cells[ny][nx];
+            if (!seen[next] && tile != forest_tree && tile != forest_rock) {
+                seen[next] = 1;
+                queue[tail++] = next;
+            }
+        }
+    }
+    free(queue);
+    free(seen);
+    if (selected < 0) {
+        return 0;
+    }
+    forest->cells[selected / forest->width][selected % forest->width] = forest_portal;
+    forest->has_portal = 1;
+    puts("Вы заблудились! В лесу появился портал P.");
+    return 1;
+}
+
 int forest_move(Forest *forest, int dx, int dy)
 {
     int x = forest->x + dx;
     int y = forest->y + dy;
-    if (x < 0 || x >= forest->width || y < 0 || y >= forest->height) {
-        return 0;
-    }
+    int crossed = x < 0 || x >= forest->width || y < 0 || y >= forest->height;
+    x = (x + forest->width) % forest->width;
+    y = (y + forest->height) % forest->height;
     if (forest->cells[y][x] == forest_tree || forest->cells[y][x] == forest_rock) {
         puts("Путь закрыт препятствием.");
         return 0;
     }
     forest->x = x;
     forest->y = y;
+    if (crossed) {
+        /* После появления портала счётчик насыщается, исключая переполнение. */
+        if (forest->crossings < forest_portal_crossings) {
+            forest->crossings++;
+        }
+        puts("Вы пересекли край и оказались на другой стороне того же леса.");
+    }
+    if (forest->cells[y][x] == forest_portal) {
+        forest->distance++;
+        if (!forest_generate(forest)) {
+            return -1;
+        }
+        puts("Портал перенёс вас на новый участок леса.");
+        return 1;
+    }
+    if (forest->crossings >= forest_portal_crossings && !forest->has_portal) {
+        if (!forest_place_portal(forest)) {
+            return -1;
+        }
+    }
     return 1;
 }

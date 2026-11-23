@@ -6,8 +6,8 @@
 
 void remove_newline(char *text);
 int read_line(char *buffer, int size);
-int read_int(const char *prompt, int min, int max);
-void read_text(const char *prompt, char *buffer, int max_len);
+int read_int(const char *prompt, int min, int max, int *result);
+int read_text(const char *prompt, char *buffer, int max_len);
 int calc_day(int day, int hour, int hours);
 int calc_hour(int hour, int hours);
 void print_time(int day, int hour);

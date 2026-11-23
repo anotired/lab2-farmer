@@ -6,119 +6,103 @@
 #include "utils.h"
 
 #define max_work_hours 24
-#define menu_last 10
+typedef enum {
+    MENU_EXIT, MENU_CREATE, MENU_CARD, MENU_INVENTORY, MENU_PUT, MENU_DROP,
+    MENU_DEDUPLICATE, MENU_SEARCH, MENU_DIARY, MENU_UNPACK, MENU_ADVENTURE,
+    MENU_CLOCK, MENU_WORK
+} MenuAction;
 
-void print_menu(const char *farmer_name)
+static void print_menu(const Player *player)
 {
-    printf("\n===== Весёлый фермер. Привет, %s! =====\n", farmer_name);
-    printf("[0] Выход\n");
-    printf("[1] Посмотреть на часы\n");
-    printf("[2] Промотать время (Поработать)\n");
-    printf("[3] Посмотреть инвентарь\n");
-    printf("[4] Положить предмет в слот\n");
-    printf("[5] Выбросить предмет\n");
-    printf("[6] Устранить дубликаты\n");
-    printf("[7] Найти предмет по названию\n");
-    printf("[8] Записать состояние в дневник\n");
-    printf("[9] Расшифровать карту (input.txt)\n");
-    printf("[10] Отправиться в приключение\n");
+    puts("\n===== Весёлый фермер =====");
+    if (player != NULL) {
+        printf("Привет, %s!\n", player->name);
+    }
+    puts("[0] Выход\n[1] Создать / пересоздать персонажа\n"
+         "[2] Карточка персонажа\n[3] Посмотреть инвентарь\n"
+         "[4] Положить предмет в слот\n[5] Выбросить предмет\n"
+         "[6] Устранить дубликаты\n[7] Найти предмет по названию\n"
+         "[8] Записать состояние в дневник\n[9] Расшифровать карту (input.txt)\n"
+         "[10] Отправиться в приключение\n[11] Посмотреть на часы\n"
+         "[12] Промотать время (Поработать)");
+}
+
+static void recreate_player(Player **player)
+{
+    int confirm;
+    if (*player != NULL &&
+        (!read_int("Удалить старого персонажа? 0 — нет, 1 — да", 0, 1, &confirm) ||
+         !confirm)) {
+        return;
+    }
+    Player *replacement = player_create();
+    if (replacement != NULL) {
+        player_destroy(*player);
+        *player = replacement;
+    }
+}
+
+static int needs_player(MenuAction action)
+{
+    return (action >= MENU_CARD && action <= MENU_DIARY) || action == MENU_ADVENTURE;
+}
+
+static void dispatch(MenuAction action, Player **player, int *day, int *hour,
+                     char item_names[max_items][max_name_len])
+{
+    Player *hero = *player;
+    int hours;
+    if (hero == NULL && needs_player(action)) {
+        puts("Сначала создайте персонажа в пункте [1].");
+        return;
+    }
+    switch (action) {
+        case MENU_CREATE: recreate_player(player); break;
+        case MENU_CARD: player_card(hero, *day, *hour, item_names); break;
+        case MENU_INVENTORY: write_inventory(stdout, hero->inventory, item_names); break;
+        case MENU_PUT: menu_put_item(hero, item_names); break;
+        case MENU_DROP: menu_drop_item(hero, item_names); break;
+        case MENU_DEDUPLICATE: menu_remove_duplicates(hero, item_names); break;
+        case MENU_SEARCH: menu_search_item(hero, item_names); break;
+        case MENU_DIARY: menu_diary(hero, *day, *hour, item_names); break;
+        case MENU_UNPACK: menu_unpack_map(); break;
+        case MENU_ADVENTURE: adventure(); break;
+        case MENU_CLOCK: print_time(*day, *hour); break;
+        case MENU_WORK:
+            if (read_int("Сколько часов работать", 0, max_work_hours, &hours)) {
+                *day = calc_day(*day, *hour, hours);
+                *hour = calc_hour(*hour, hours);
+                print_time(*day, *hour);
+            }
+            break;
+        case MENU_EXIT: break;
+    }
 }
 
 int main(void)
 {
-    int current_day = 1;
-    int current_hour = 8;
-    int inventory[inventory_size] = {1, 2, 3, 4, 8, 2, 5, 7, 8, 1};
-    /* 0 - пусто, 1 - дерево, 2 - камень, 3 - семена, 4 - кирка, 5 - топор, 6 - мотыга,
-    7 - броня, 8 - верстак, 9 - печь */
+    int day = 1, hour = 8;
+    Player *player = NULL;
     char item_names[max_items][max_name_len];
-    char farmer_name[max_name_len];
-    int loaded;
     int choice;
-    int hours;
-    int slot;
-    int item_id;
 
     srand((unsigned int)time(NULL));
     set_default_names(item_names);
-    loaded = load_item_names(item_names, items_file);
-    if (loaded == 0) {
-        printf("Предупреждение: файл %s не найден. Используются стандартные названия.\n", items_file);
-    } else if (loaded < max_items) {
-        printf("Предупреждение: в %s только %d строк из %d. Остальные названия стандартные.\n",
-               items_file, loaded, max_items);
+    int loaded = load_item_names(item_names, items_file);
+    if (loaded < max_items) {
+        printf("Предупреждение: загружено %d из %d названий из %s. "
+               "Для остальных используются стандартные названия.\n",
+               loaded, max_items, items_file);
     }
-    read_text("Введите имя фермера: ", farmer_name, max_name_len);
-
-    while (1) {
-        print_menu(farmer_name);
-        choice = read_int("Введите действие", 0, menu_last);
-
-        switch (choice) {
-            case 0:
-                printf("Вы вышли из игры\n");
-                return 0;
-
-            case 1:
-                print_time(current_day, current_hour);
-                break;
-
-            case 2:
-                hours = read_int("Сколько часов работать", 0, max_work_hours);
-                current_day = calc_day(current_day, current_hour, hours);
-                current_hour = calc_hour(current_hour, hours);
-                printf("Вы поработали %d ч.\n", hours);
-                print_time(current_day, current_hour);
-                break;
-
-            case 3:
-                write_inventory(stdout, inventory, item_names);
-                break;
-
-            case 4:
-                slot = read_int("Номер слота", 0, inventory_size - 1);
-                item_id = read_int("ID предмета", 0, max_item_id);
-                put_item(inventory, slot, item_id);
-                printf("В слот %d положен предмет: %s\n", slot, item_names[item_id]);
-                break;
-
-            case 5:
-                slot = read_int("Номер слота", 0, inventory_size - 1);
-                if (inventory[slot] == item_empty) {
-                    printf("Слот %d уже пуст.\n", slot);
-                } else {
-                    printf("Выброшен предмет: %s\n", item_names[inventory[slot]]);
-                    drop_item(inventory, slot);
-                }
-                break;
-
-            case 6:
-                printf("Инвентарь ДО:\n");
-                write_inventory(stdout, inventory, item_names);
-                remove_duplicates(inventory);
-                printf("Инвентарь ПОСЛЕ:\n");
-                write_inventory(stdout, inventory, item_names);
-                break;
-
-            case 7:
-                menu_search_item(inventory, item_names);
-                break;
-
-            case 8:
-                menu_diary(farmer_name, current_day, current_hour, inventory, item_names);
-                break;
-
-            case 9:
-                menu_unpack_map();
-                break;
-
-            case 10:
-                adventure();
-                break;
-
-            default:
-                printf("Такого пункта нет в меню!\n");
-                break;
+    while (!feof(stdin) && !ferror(stdin)) {
+        print_menu(player);
+        if (!read_int("Введите действие", MENU_EXIT, MENU_WORK, &choice) ||
+            choice == MENU_EXIT) {
+            break;
         }
+        dispatch((MenuAction)choice, &player, &day, &hour, item_names);
     }
+    player_destroy(player);
+    puts("Вы вышли из игры");
+    return 0;
 }

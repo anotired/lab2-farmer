@@ -49,7 +49,7 @@ int read_line(char *buffer, int size)
     }
 }
 
-int read_int(const char *prompt, int min, int max)
+int read_int(const char *prompt, int min, int max, int *result)
 {
     char line[line_size];
     long value;
@@ -76,12 +76,13 @@ int read_int(const char *prompt, int min, int max)
         } else if (value < min || value > max) {
             printf("Ошибка: число должно быть от %d до %d!\n", min, max);
         } else {
-            return (int)value;
+            *result = (int)value;
+            return 1;
         }
     }
 }
 
-void read_text(const char *prompt, char *buffer, int max_len)
+int read_text(const char *prompt, char *buffer, int max_len)
 {
     char line[line_size];
 
@@ -97,7 +98,7 @@ void read_text(const char *prompt, char *buffer, int max_len)
             printf("Ошибка: не длиннее %d символов (байт)!\n", max_len - 1);
         } else {
             strcpy(buffer, line);
-            return;
+            return 1;
         }
     }
 }

@@ -10,18 +10,29 @@
 #define max_name_len 32
 #define items_file "items.txt"
 
+typedef struct Player {
+    char name[max_name_len];
+    int hp, max_hp;
+    int stamina, max_stamina;
+    int gold;
+    int x, y;
+    int inventory[inventory_size];
+} Player;
+
+Player *player_create(void);
+void player_destroy(Player *player);
+void player_card(const Player *player, int day, int hour,
+                 char item_names[max_items][max_name_len]);
+void menu_put_item(Player *player, char item_names[max_items][max_name_len]);
+void menu_drop_item(Player *player, char item_names[max_items][max_name_len]);
+void menu_remove_duplicates(Player *player, char item_names[max_items][max_name_len]);
 void set_default_names(char item_names[max_items][max_name_len]);
 void write_inventory(FILE *out, const int inventory[], char item_names[max_items][max_name_len]);
 int load_item_names(char item_names[max_items][max_name_len], const char *filename);
-void put_item(int inventory[], int slot, int item_id);
-void drop_item(int inventory[], int slot);
-void remove_duplicates(int inventory[]);
-int find_item_id(char item_names[max_items][max_name_len], const char *name);
-int find_slots(const int inventory[], int item_id, int slots[]);
-void write_diary_entry(FILE *out, const char *farmer_name, int day, int hour,
-                       const int inventory[], char item_names[max_items][max_name_len]);
-void menu_search_item(const int inventory[], char item_names[max_items][max_name_len]);
-void menu_diary(const char *farmer_name, int day, int hour,
-                const int inventory[], char item_names[max_items][max_name_len]);
+
+
+
+void menu_search_item(const Player *player, char item_names[max_items][max_name_len]);
+void menu_diary(const Player *player, int day, int hour, char item_names[max_items][max_name_len]);
 
 #endif

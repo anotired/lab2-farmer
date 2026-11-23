@@ -1,9 +1,12 @@
 #include "player.h"
 #include "utils.h"
 #include <string.h>
+#include <stdlib.h>
 
 #define diary_file "diary.txt"
 #define no_item (-1)
+#define START_HP 100
+#define START_STAMINA 50
 
 void set_default_names(char item_names[max_items][max_name_len])
 {
@@ -52,17 +55,7 @@ int load_item_names(char item_names[max_items][max_name_len], const char *filena
     return count;
 }
 
-void put_item(int inventory[], int slot, int item_id)
-{
-    inventory[slot] = item_id;
-}
-
-void drop_item(int inventory[], int slot)
-{
-    inventory[slot] = item_empty;
-}
-
-void remove_duplicates(int inventory[])
+static void remove_duplicates(int inventory[])
 {
     int i;
     int j;
@@ -78,7 +71,7 @@ void remove_duplicates(int inventory[])
     }
 }
 
-int find_item_id(char item_names[max_items][max_name_len], const char *name)
+static int find_item_id(char item_names[max_items][max_name_len], const char *name)
 {
     int id;
 
@@ -90,7 +83,7 @@ int find_item_id(char item_names[max_items][max_name_len], const char *name)
     return no_item;
 }
 
-int find_slots(const int inventory[], int item_id, int slots[])
+static int find_slots(const int inventory[], int item_id, int slots[])
 {
     int i;
     int count = 0;
@@ -104,7 +97,7 @@ int find_slots(const int inventory[], int item_id, int slots[])
     return count;
 }
 
-void write_diary_entry(FILE *out, const char *farmer_name, int day, int hour,
+static void write_diary_entry(FILE *out, const char *farmer_name, int day, int hour,
                        const int inventory[], char item_names[max_items][max_name_len])
 {
     fprintf(out, "===== Запись дневника =====\n");
@@ -115,7 +108,7 @@ void write_diary_entry(FILE *out, const char *farmer_name, int day, int hour,
     fprintf(out, "\n");
 }
 
-void menu_search_item(const int inventory[], char item_names[max_items][max_name_len])
+void menu_search_item(const Player *player, char item_names[max_items][max_name_len])
 {
     char name[max_name_len];
     int slots[inventory_size];
@@ -123,7 +116,9 @@ void menu_search_item(const int inventory[], char item_names[max_items][max_name
     int count;
     int i;
 
-    read_text("Введите название предмета: ", name, max_name_len);
+    if (!read_text("Введите название предмета: ", name, max_name_len)) {
+        return;
+    }
 
     item_id = find_item_id(item_names, name);
     if (item_id == no_item) {
@@ -131,7 +126,7 @@ void menu_search_item(const int inventory[], char item_names[max_items][max_name
         return;
     }
 
-    count = find_slots(inventory, item_id, slots);
+    count = find_slots(player->inventory, item_id, slots);
     if (count == 0) {
         printf("Предмет \"%s\" (ID %d) есть в каталоге, но в рюкзаке его нет.\n", name, item_id);
         return;
@@ -144,8 +139,8 @@ void menu_search_item(const int inventory[], char item_names[max_items][max_name
     printf("\n");
 }
 
-void menu_diary(const char *farmer_name, int day, int hour,
-                const int inventory[], char item_names[max_items][max_name_len])
+void menu_diary(const Player *player, int day, int hour,
+                char item_names[max_items][max_name_len])
 {
     FILE *file;
 
@@ -155,10 +150,80 @@ void menu_diary(const char *farmer_name, int day, int hour,
         return;
     }
 
-    write_diary_entry(stdout, farmer_name, day, hour, inventory, item_names);
-    write_diary_entry(file, farmer_name, day, hour, inventory, item_names);
+    write_diary_entry(stdout, player->name, day, hour, player->inventory, item_names);
+    write_diary_entry(file, player->name, day, hour, player->inventory, item_names);
 
     fclose(file);
     printf("Запись добавлена в %s\n", diary_file);
 }
 
+
+Player *player_create(void)
+{
+    Player initial = {
+        .hp = START_HP, .max_hp = START_HP,
+        .stamina = START_STAMINA, .max_stamina = START_STAMINA,
+        .inventory = {1, 2, 3, 4, 8, 2, 5, 7, 8, 1}
+    };
+    if (!read_text("Введите имя фермера: ", initial.name, sizeof(initial.name))) {
+        return NULL;
+    }
+    Player *player = malloc(sizeof(*player));
+    if (player == NULL) {
+        puts("Не удалось выделить память для персонажа.");
+        return NULL;
+    }
+    *player = initial;
+    return player;
+}
+
+void player_destroy(Player *player)
+{
+    if (player != NULL) {
+        printf("Память структуры по адресу %p освобождена\n", (void *)player);
+        free(player);
+    }
+}
+
+void player_card(const Player *player, int day, int hour,
+                 char item_names[max_items][max_name_len])
+{
+    printf("\n===== Карточка: %s =====\n", player->name);
+    printf("HP: %d/%d | Выносливость: %d/%d | Золото: %d\n",
+           player->hp, player->max_hp, player->stamina, player->max_stamina, player->gold);
+    print_time(day, hour);
+    write_inventory(stdout, player->inventory, item_names);
+}
+
+void menu_put_item(Player *player, char item_names[max_items][max_name_len])
+{
+    int slot, id;
+    if (read_int("Номер слота", 0, inventory_size - 1, &slot) &&
+        read_int("ID предмета", 0, max_item_id, &id)) {
+        player->inventory[slot] = id;
+        printf("В слот %d положен предмет: %s\n", slot, item_names[id]);
+    }
+}
+
+void menu_drop_item(Player *player, char item_names[max_items][max_name_len])
+{
+    int slot;
+    if (read_int("Номер слота", 0, inventory_size - 1, &slot)) {
+        int id = player->inventory[slot];
+        if (id == item_empty) {
+            printf("Слот %d уже пуст.\n", slot);
+        } else {
+            printf("Выброшен предмет: %s\n", item_names[id]);
+            player->inventory[slot] = item_empty;
+        }
+    }
+}
+
+void menu_remove_duplicates(Player *player, char item_names[max_items][max_name_len])
+{
+    puts("Инвентарь ДО:");
+    write_inventory(stdout, player->inventory, item_names);
+    remove_duplicates(player->inventory);
+    puts("Инвентарь ПОСЛЕ:");
+    write_inventory(stdout, player->inventory, item_names);
+}

@@ -1,5 +1,5 @@
-#ifndef ADVENTURE_H
-#define ADVENTURE_H
+#ifndef MAP_H
+#define MAP_H
 
 #define adventure_line_size 256
 #define forest_min_size 5

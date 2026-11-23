@@ -1,4 +1,4 @@
-#include "../src/adventure.h"
+#include "../map.h"
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>

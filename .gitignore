@@ -9,3 +9,5 @@
 *.pdb
 .vs/
 *.su
+diary.txt
+output.txt
